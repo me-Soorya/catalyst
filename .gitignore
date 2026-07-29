@@ -5,7 +5,11 @@ node_modules/
 dist/
 
 # Local env files
-\.env
+.env
+.env.*
+.env.example
+
+
 # Vite cache
 node_modules/.vite/
 
