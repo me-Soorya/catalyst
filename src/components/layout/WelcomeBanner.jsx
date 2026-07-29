@@ -52,12 +52,12 @@ export default function WelcomeBanner() {
       <div className="absolute top-0 right-0 -mt-10 -mr-10 w-72 h-72 bg-teal-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
       {/* Watermark Logo */}
-      <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-10 pointer-events-none hidden lg:block">
+      <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-25 pointer-events-none hidden lg:block">
         <img src="/logo.png" alt="Catalyst Watermark" className="w-52 h-52 object-contain" />
       </div>
 
       <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-        
+
         {/* Left Side: Welcoming Message & Greeting */}
         <div className="max-w-xl">
           {/* Greeting Badge */}
@@ -98,7 +98,7 @@ export default function WelcomeBanner() {
 
         {/* Right Side: Live Clock & Today's Details Card */}
         <div className="glass-panel p-5 rounded-2xl border border-teal-500/20 bg-slate-900/80 backdrop-blur-md shadow-xl flex flex-col justify-between min-w-[260px] sm:min-w-[300px]">
-          
+
           {/* Header of card: Day */}
           <div className="flex items-center justify-between border-b border-teal-900/30 pb-3 mb-3">
             <div className="flex items-center gap-2">
@@ -107,7 +107,7 @@ export default function WelcomeBanner() {
                 {dayName}
               </span>
             </div>
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 px-2 py-0.5 rounded-md bg-slate-800 border border-slate-700/60">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-2 py-0.5 rounded-md bg-slate-800 border border-slate-700/60">
               {timezoneStr}
             </span>
           </div>
@@ -125,7 +125,7 @@ export default function WelcomeBanner() {
 
           {/* Today's Full Date */}
           <div className="mt-3 pt-3 border-t border-teal-900/30 flex items-center justify-between text-xs text-slate-300">
-            <span className="text-slate-400 font-medium">Date</span>
+            <span className="text-slate-400 font-bold">Date</span>
             <span className="font-semibold text-slate-200">{formattedDate}</span>
           </div>
 

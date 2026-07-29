@@ -41,9 +41,10 @@ export async function fetchUpcomingEvents(accessToken) {
 }
 
 /**
- * Creates a new study event on user's primary Google Calendar
+ * Creates a new event on user's primary Google Calendar.
+ * Supports both timed events and all-day events.
  * @param {string} accessToken - Valid Google OAuth access token
- * @param {Object} eventData - { title, description, startDateTime, endDateTime, colorId }
+ * @param {Object} eventData - { title, description, startDateTime, endDateTime, colorId, allDay? }
  * @returns {Promise<Object>} Created Google Calendar event object
  */
 export async function createCalendarEvent(accessToken, eventData) {
@@ -53,15 +54,20 @@ export async function createCalendarEvent(accessToken, eventData) {
 
   const client = createCalendarClient(accessToken);
 
+  // All-day events use { date: 'YYYY-MM-DD' }, timed events use { dateTime: ISO }
+  const startField = eventData.allDay
+    ? { date: new Date(eventData.startDateTime).toISOString().split('T')[0] }
+    : { dateTime: new Date(eventData.startDateTime).toISOString() };
+
+  const endField = eventData.allDay
+    ? { date: new Date(eventData.startDateTime).toISOString().split('T')[0] } // same day for single all-day
+    : { dateTime: new Date(eventData.endDateTime).toISOString() };
+
   const payload = {
     summary: eventData.title,
-    description: eventData.description || 'Created via Catalyst AI Planner',
-    start: {
-      dateTime: new Date(eventData.startDateTime).toISOString(),
-    },
-    end: {
-      dateTime: new Date(eventData.endDateTime).toISOString(),
-    },
+    description: eventData.description || 'Created via Catalyst Study Planner',
+    start: startField,
+    end: endField,
     // Google Calendar API supports colorId 1 to 11
     ...(eventData.colorId ? { colorId: String(eventData.colorId) } : {}),
   };
