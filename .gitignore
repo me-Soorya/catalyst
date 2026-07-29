@@ -5,9 +5,9 @@ node_modules/
 dist/
 
 # Local env files
-.env
-.env.*
-client_secret_170066542461-ehlc3t2hcg34202s0anc62r1nfrsommj.apps.googleusercontent.com.json
+.env/
+.env.*/
+client_secret_170066542461-ehlc3t2hcg34202s0anc62r1nfrsommj.apps.googleusercontent.com.json/
 
 # Vite cache
 node_modules/.vite/
