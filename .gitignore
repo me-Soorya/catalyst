@@ -5,9 +5,8 @@ node_modules/
 dist/
 
 # Local env files
-.env/
-.env.*/
-client_secret_170066542461-ehlc3t2hcg34202s0anc62r1nfrsommj.apps.googleusercontent.com.json/
+.env
+.env.*
 
 # Vite cache
 node_modules/.vite/
@@ -67,3 +66,6 @@ pnpm-debug.log*
 .env.development.local
 .env.test.local
 .env.production.local
+.env
+.env.example
+OAuthClientSecret.json
