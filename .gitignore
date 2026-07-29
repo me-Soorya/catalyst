@@ -7,6 +7,10 @@ dist/
 # Local env files
 .env
 .env.*
+.env.example
+
+# OAuth client secrets
+OAuthClientSecret.json
 
 # Vite cache
 node_modules/.vite/
@@ -66,6 +70,3 @@ pnpm-debug.log*
 .env.development.local
 .env.test.local
 .env.production.local
-.env
-.env.example
-OAuthClientSecret.json
