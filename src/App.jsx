@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
-import { GraduationCap, BookOpen, Briefcase, Zap, LogOut, AlertCircle, Plus, Calendar as CalendarIcon } from 'lucide-react';
+import { GraduationCap, BookOpen, Briefcase, Zap, LogOut, AlertCircle, Plus, Calendar as CalendarIcon, Sparkles } from 'lucide-react';
 import AddEventModal from './components/calendar/AddEventModal';
 import CalendarModal from './components/CalendarModal';
 import EventList from './components/calendar/EventList';
+import ClassroomHub from './components/classroom/ClassroomHub';
 import Toast from './components/common/Toast';
 import { useAuth } from './context/AuthContext';
 import { useCalendar, CalendarProvider } from './context/CalendarContext';
@@ -75,6 +76,7 @@ function Dashboard() {
   const { user, isAuthenticated, login, logout } = useAuth();
   const { events } = useCalendar();
 
+  const [activeView, setActiveView]         = useState('dashboard'); // 'dashboard' | 'classroom'
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [clock, setClock]                   = useState(new Date());
@@ -108,21 +110,48 @@ function Dashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="neu-card rounded-none sm:rounded-2xl sm:mx-4 sm:mt-4 px-5 h-16 flex items-center justify-between gap-4 shadow-neu-sm">
 
-            {/* Left: Brand */}
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl neu-btn flex items-center justify-center p-1.5 flex-shrink-0">
-                <img src="/logo.png" alt="Catalyst" className="w-full h-full object-contain" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-display font-extrabold text-base text-slate-800">
-                    Catalyst
-                  </span>
-                  <span className="px-1.5 py-0.5 text-[9px] font-extrabold tracking-widest uppercase rounded-lg bg-teal-100 text-teal-700 shadow-neu-xs">
-                    v1.0
-                  </span>
+            {/* Left: Brand & Navigation Tabs */}
+            <div className="flex items-center gap-4 sm:gap-6">
+              <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActiveView('dashboard')}>
+                <div className="w-10 h-10 rounded-2xl neu-btn flex items-center justify-center p-1.5 flex-shrink-0">
+                  <img src="/logo.png" alt="Catalyst" className="w-full h-full object-contain" />
                 </div>
-                <p className="text-[10px] text-slate-400 hidden sm:block">AI-First Google Calendar Planner</p>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-display font-extrabold text-base text-slate-800">
+                      Catalyst
+                    </span>
+                    <span className="px-1.5 py-0.5 text-[9px] font-extrabold tracking-widest uppercase rounded-lg bg-teal-100 text-teal-700 shadow-neu-xs">
+                      v1.0
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 hidden sm:block">AI-First Google Calendar Planner</p>
+                </div>
+              </div>
+
+              {/* View Nav Tabs */}
+              <div className="flex items-center gap-1.5 p-1 rounded-xl neu-inset text-xs font-bold">
+                <button
+                  onClick={() => setActiveView('dashboard')}
+                  className={`px-3 py-1.5 rounded-lg transition-all ${
+                    activeView === 'dashboard'
+                      ? 'neu-btn text-teal-700 shadow-neu-xs'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  Dashboard
+                </button>
+                <button
+                  onClick={() => setActiveView('classroom')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
+                    activeView === 'classroom'
+                      ? 'neu-btn text-indigo-700 shadow-neu-xs'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  <GraduationCap className="w-3.5 h-3.5" />
+                  <span>Classroom Hub</span>
+                </button>
               </div>
             </div>
 
@@ -187,110 +216,115 @@ function Dashboard() {
           MAIN CONTENT
       ════════════════════════════════════════ */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {activeView === 'classroom' ? (
+          <ClassroomHub />
+        ) : (
+          <>
+            {/* ── Hero Banner ── */}
+            <div className="neu-card p-6 sm:p-8 mb-8 relative overflow-hidden">
+              {/* Subtle color accent blobs */}
+              <div className="absolute -top-10 -right-10 w-48 h-48 bg-teal-200/30 rounded-full blur-3xl pointer-events-none" />
+              <div className="absolute -bottom-8 -left-8 w-36 h-36 bg-indigo-200/20 rounded-full blur-3xl pointer-events-none" />
 
-        {/* ── Hero Banner ── */}
-        <div className="neu-card p-6 sm:p-8 mb-8 relative overflow-hidden">
-          {/* Subtle color accent blobs */}
-          <div className="absolute -top-10 -right-10 w-48 h-48 bg-teal-200/30 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-8 -left-8 w-36 h-36 bg-indigo-200/20 rounded-full blur-3xl pointer-events-none" />
-
-          {/* Watermark logo */}
-          <div className="absolute right-8 top-1/2 -translate-y-1/2 opacity-25 pointer-events-none hidden lg:block">
-            <img src="/logo.png" alt="" className="w-64 h-64 object-contain" />
-          </div>
-
-          <div className="relative z-10">
-            {/* Greeting */}
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full neu-inset text-teal-700 text-[10px] font-bold uppercase tracking-widest mb-4">
-              <span className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse" />
-              Dashboard
-            </span>
-
-            <h1 className="font-display font-extrabold text-2xl sm:text-3xl lg:text-4xl text-slate-800 tracking-tight leading-tight">
-              {greeting},{' '}
-              <span className="text-teal-600">{displayName}</span> 👋
-            </h1>
-
-            <p className="text-slate-500 text-sm mt-2">
-              {isAuthenticated
-                ? `${events.length} upcoming event${events.length !== 1 ? 's' : ''} synced from Google Calendar.`
-                : 'Connect your Google account to sync your academic calendar.'}
-            </p>
-
-            {/* Date / Clock cards */}
-            <div className="flex flex-wrap gap-4 mt-6">
-
-              {/* Date card */}
-              <div className="flex items-center gap-3 px-5 py-4 rounded-2xl neu-inset">
-                <div className="w-10 h-10 rounded-xl bg-teal-100 flex items-center justify-center flex-shrink-0">
-                  <CalendarIcon className="w-5 h-5 text-teal-600" />
-                </div>
-                <div>
-                  <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-0.5">Today's Date</p>
-                  <p className="text-xl sm:text-2xl font-extrabold text-slate-800 leading-tight">{currentDate}</p>
-                  <p className="text-xs text-teal-600 font-semibold mt-0.5">{currentYear}</p>
-                </div>
+              {/* Watermark logo */}
+              <div className="absolute right-8 top-1/2 -translate-y-1/2 opacity-25 pointer-events-none hidden lg:block">
+                <img src="/logo.png" alt="" className="w-64 h-64 object-contain" />
               </div>
 
-              {/* Clock card */}
-              <div className="flex items-center gap-3 px-5 py-4 rounded-2xl neu-inset">
-                <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                  <span className="text-xl leading-none">⏱</span>
-                </div>
-                <div>
-                  <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-0.5">Live Clock</p>
-                  <p className="text-2xl sm:text-3xl font-extrabold text-indigo-600 font-mono tabular-nums leading-tight">{currentTime}</p>
-                  <p className="text-xs text-slate-400 font-medium mt-0.5">Real-time</p>
-                </div>
-              </div>
+              <div className="relative z-10">
+                {/* Greeting */}
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full neu-inset text-teal-700 text-[10px] font-bold uppercase tracking-widest mb-4">
+                  <span className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse" />
+                  Dashboard
+                </span>
 
-              {!isAuthenticated && (
-                <button
-                  onClick={() => login()}
-                  className="flex items-center gap-2 px-5 py-4 rounded-2xl neu-btn text-rose-600 text-sm font-semibold self-stretch"
-                >
-                  <AlertCircle className="w-4 h-4" />
-                  Connect Google Calendar
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
+                <h1 className="font-display font-extrabold text-2xl sm:text-3xl lg:text-4xl text-slate-800 tracking-tight leading-tight">
+                  {greeting},{' '}
+                  <span className="text-teal-600">{displayName}</span> 👋
+                </h1>
 
-        {/* ── 4-Column KPI Bar ── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          {KPI_CARDS.map((card, i) => {
-            const Icon  = card.icon;
-            const count = kpiCounts[i];
-            const a     = card.accent;
-            return (
-              <div
-                key={card.key}
-                className="neu-card neu-card-hover p-5 cursor-default"
-              >
-                {/* Icon + count row */}
-                <div className="flex items-start justify-between mb-4">
-                  <div className={`w-11 h-11 rounded-2xl ${a.iconBg} flex items-center justify-center shadow-neu-xs`}>
-                    <Icon className={`w-5 h-5 ${a.iconColor}`} />
+                <p className="text-slate-500 text-sm mt-2">
+                  {isAuthenticated
+                    ? `${events.length} upcoming event${events.length !== 1 ? 's' : ''} synced from Google Calendar.`
+                    : 'Connect your Google account to sync your academic calendar.'}
+                </p>
+
+                {/* Date / Clock cards */}
+                <div className="flex flex-wrap gap-4 mt-6">
+
+                  {/* Date card */}
+                  <div className="flex items-center gap-3 px-5 py-4 rounded-2xl neu-inset">
+                    <div className="w-10 h-10 rounded-xl bg-teal-100 flex items-center justify-center flex-shrink-0">
+                      <CalendarIcon className="w-5 h-5 text-teal-600" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-0.5">Today's Date</p>
+                      <p className="text-xl sm:text-2xl font-extrabold text-slate-800 leading-tight">{currentDate}</p>
+                      <p className="text-xs text-teal-600 font-semibold mt-0.5">{currentYear}</p>
+                    </div>
                   </div>
-                  <span className={`text-3xl font-extrabold ${a.countColor} font-display tabular-nums`}>
-                    {count}
-                  </span>
-                </div>
 
-                {/* Label */}
-                <p className="text-sm font-bold text-slate-700 leading-tight">{card.label}</p>
-                <div className="flex items-center gap-1.5 mt-1.5">
-                  <span className={`w-2 h-2 rounded-full ${a.dot}`} />
-                  <p className={`text-[11px] font-semibold ${a.label}`}>{card.sublabel}</p>
+                  {/* Clock card */}
+                  <div className="flex items-center gap-3 px-5 py-4 rounded-2xl neu-inset">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                      <span className="text-xl leading-none">⏱</span>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-0.5">Live Clock</p>
+                      <p className="text-2xl sm:text-3xl font-extrabold text-indigo-600 font-mono tabular-nums leading-tight">{currentTime}</p>
+                      <p className="text-xs text-slate-400 font-medium mt-0.5">Real-time</p>
+                    </div>
+                  </div>
+
+                  {!isAuthenticated && (
+                    <button
+                      onClick={() => login()}
+                      className="flex items-center gap-2 px-5 py-4 rounded-2xl neu-btn text-rose-600 text-sm font-semibold self-stretch"
+                    >
+                      <AlertCircle className="w-4 h-4" />
+                      Connect Google Calendar
+                    </button>
+                  )}
                 </div>
               </div>
-            );
-          })}
-        </div>
+            </div>
 
-        {/* ── Event List ── */}
-        <EventList onOpenCreateModal={() => setIsAddModalOpen(true)} />
+            {/* ── 4-Column KPI Bar ── */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+              {KPI_CARDS.map((card, i) => {
+                const Icon  = card.icon;
+                const count = kpiCounts[i];
+                const a     = card.accent;
+                return (
+                  <div
+                    key={card.key}
+                    className="neu-card neu-card-hover p-5 cursor-default"
+                  >
+                    {/* Icon + count row */}
+                    <div className="flex items-start justify-between mb-4">
+                      <div className={`w-11 h-11 rounded-2xl ${a.iconBg} flex items-center justify-center shadow-neu-xs`}>
+                        <Icon className={`w-5 h-5 ${a.iconColor}`} />
+                      </div>
+                      <span className={`text-3xl font-extrabold ${a.countColor} font-display tabular-nums`}>
+                        {count}
+                      </span>
+                    </div>
+
+                    {/* Label */}
+                    <p className="text-sm font-bold text-slate-700 leading-tight">{card.label}</p>
+                    <div className="flex items-center gap-1.5 mt-1.5">
+                      <span className={`w-2 h-2 rounded-full ${a.dot}`} />
+                      <p className={`text-[11px] font-semibold ${a.label}`}>{card.sublabel}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* ── Event List ── */}
+            <EventList onOpenCreateModal={() => setIsAddModalOpen(true)} />
+          </>
+        )}
       </main>
 
       {/* ── Footer ── */}

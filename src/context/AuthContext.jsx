@@ -86,7 +86,7 @@ export const AuthProvider = ({ children }) => {
     onError: (error) => {
       console.error('Google Auth Failed:', error);
     },
-    scope: 'openid profile email https://www.googleapis.com/auth/calendar.events',
+    scope: 'openid profile email https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/classroom.courses.readonly https://www.googleapis.com/auth/classroom.coursework.me.readonly https://www.googleapis.com/auth/classroom.announcements.readonly https://www.googleapis.com/auth/classroom.courseworkmaterials.readonly',
   });
 
   const logout = () => {
