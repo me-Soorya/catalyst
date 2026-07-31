@@ -1,19 +1,8 @@
 import axios from 'axios';
+import { fetchCourseMaterials, isCurrentYearAcademicCourse } from './googleClassroom';
 
 /**
  * Extracts due dates and structured assignment information using Gemini Flash API (or local fallback).
- *
- * @param {string} text - The post, announcement, or material content to analyze
- * @param {string} courseName - Name of the course for context
- * @returns {Promise<Object>} JSON matching required schema:
- * {
- *   isAssignment: boolean,
- *   title: string,
- *   course: string,
- *   hasDueDate: boolean,
- *   dueDateISO: string | null,
- *   summary: string
- * }
  */
 export async function extractDueDateWithGemini(text, courseName = 'General Course') {
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
@@ -31,7 +20,6 @@ export async function extractDueDateWithGemini(text, courseName = 'General Cours
     };
   }
 
-  // System instructions as requested
   const systemInstructionText = `You are an expert academic parser. Analyze the given Google Classroom post text.
 Determine if this text describes an assignment or task with a due date.
 Calculate absolute dates based on the current timestamp if relative dates (like "next Wednesday") are used.
@@ -51,22 +39,19 @@ Return ONLY a valid JSON object matching this schema:
 
   if (apiKey) {
     try {
-      // Primary endpoint: gemini-2.5-flash
       const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
       const payload = {
         contents: [
           {
             role: 'user',
-            parts: [
-              { text: `${systemInstructionText}\n\n${promptText}` }
-            ]
-          }
+            parts: [{ text: `${systemInstructionText}\n\n${promptText}` }],
+          },
         ],
         generationConfig: {
           temperature: 0.1,
-          responseMimeType: "application/json"
-        }
+          responseMimeType: 'application/json',
+        },
       };
 
       const response = await axios.post(endpoint, payload, {
@@ -91,25 +76,77 @@ Return ONLY a valid JSON object matching this schema:
     }
   }
 
-  // ─── LOCAL HEURISTIC FALLBACK PARSER ───────────────────────────────────────
+  // Fallback rule parser
   return fallbackRuleExtractor(text, courseName);
 }
 
 /**
- * Fallback parser using regex and date math when Gemini API is unavailable or not configured.
+ * Filter enrolled courses so that AI scan only runs on courses active in the current year (2026 / S4).
+ */
+export function filterCurrentYearCourses(courses) {
+  if (!Array.isArray(courses)) return [];
+  return courses.filter(isCurrentYearAcademicCourse);
+}
+
+/**
+ * Scans announcements and materials of current-year (2026) active courses for hidden deadlines.
+ * Excludes items that match already submitted assignments.
+ */
+export async function scan2026CoursesForHiddenDeadlines(accessToken, courses, pendingAssignments = []) {
+  const yearCourses = filterCurrentYearCourses(courses, 2026);
+  const hiddenDeadlines = [];
+
+  for (const course of yearCourses) {
+    try {
+      const { announcements, materials } = await fetchCourseMaterials(accessToken, course.id);
+
+      const itemsToScan = [
+        ...announcements.map((a) => ({ id: a.id, text: a.text, source: 'Announcement', link: a.alternateLink })),
+        ...materials.map((m) => ({ id: m.id, text: `${m.title}. ${m.description || ''}`, source: 'Material', link: m.alternateLink })),
+      ];
+
+      for (const item of itemsToScan) {
+        if (!item.text || item.text.trim().length < 15) continue;
+
+        const aiResult = await extractDueDateWithGemini(item.text, course.name);
+
+        if (aiResult && aiResult.hasDueDate && aiResult.dueDateISO) {
+        const extractedDate = new Date(aiResult.dueDateISO);
+        if (!Number.isNaN(extractedDate.getTime()) && extractedDate > new Date()) {
+          hiddenDeadlines.push({
+            id: `hd-${item.id}`,
+            sourceId: item.id,
+            courseName: course.name,
+            title: aiResult.title || 'Hidden Assignment Deadline',
+            summary: aiResult.summary || item.text.slice(0, 100),
+            dueDateISO: aiResult.dueDateISO,
+            hasDueDate: true,
+            link: item.link || course.alternateLink,
+            rawText: item.text,
+          });
+        }
+      }
+      }
+    } catch (err) {
+      console.warn(`Error scanning course ${course.name} for hidden deadlines:`, err.message);
+    }
+  }
+
+  return hiddenDeadlines;
+}
+
+/**
+ * Fallback parser using regex and date math when Gemini API is unavailable.
  */
 function fallbackRuleExtractor(text, courseName) {
   const lower = text.toLowerCase();
-
   const isAssignmentKeywords = ['due', 'submit', 'assignment', 'project', 'proposal', 'lab', 'deadline', 'reading', 'draft', 'quiz'];
   const isAssignment = isAssignmentKeywords.some((kw) => lower.includes(kw));
 
   let hasDueDate = false;
   let dueDateISO = null;
-
   const now = new Date();
 
-  // Match "August 5", "August 7 at 5:00 PM", "August 10, 2026", etc.
   const dateRegex = /(january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{1,2})(?:st|nd|rd|th)?(?:,\s*(\d{4}))?(?:\s+(?:at|by)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?)?/i;
   const dateMatch = text.match(dateRegex);
 
@@ -117,7 +154,7 @@ function fallbackRuleExtractor(text, courseName) {
     hasDueDate = true;
     const monthName = dateMatch[1];
     const dayStr = dateMatch[2];
-    const yearStr = dateMatch[3] || now.getFullYear().toString();
+    const yearStr = dateMatch[3] || '2026';
     let hourStr = dateMatch[4] || '23';
     let minStr = dateMatch[5] || '59';
     const ampm = dateMatch[6]?.toLowerCase();
@@ -132,14 +169,10 @@ function fallbackRuleExtractor(text, courseName) {
     ].indexOf(monthName.toLowerCase());
 
     const targetDate = new Date(parseInt(yearStr, 10), monthIndex, parseInt(dayStr, 10), hour, parseInt(minStr, 10), 0);
-    
-    // Format YYYY-MM-DDTHH:mm:ss+05:30
-    const tzOffset = '+05:30';
     const pad = (n) => String(n).padStart(2, '0');
-    dueDateISO = `${targetDate.getFullYear()}-${pad(targetDate.getMonth() + 1)}-${pad(targetDate.getDate())}T${pad(targetDate.getHours())}:${pad(targetDate.getMinutes())}:00${tzOffset}`;
+    dueDateISO = `${targetDate.getFullYear()}-${pad(targetDate.getMonth() + 1)}-${pad(targetDate.getDate())}T${pad(targetDate.getHours())}:${pad(targetDate.getMinutes())}:00+05:30`;
   } else if (lower.includes('next wednesday')) {
     hasDueDate = true;
-    // Calculate next Wednesday from current date
     const targetDate = new Date(now);
     const currentDay = targetDate.getDay();
     let daysUntilWed = (3 - currentDay + 7) % 7;
@@ -162,10 +195,8 @@ function fallbackRuleExtractor(text, courseName) {
     dueDateISO = `${targetDate.getFullYear()}-${pad(targetDate.getMonth() + 1)}-${pad(targetDate.getDate())}T17:00:00+05:30`;
   }
 
-  // Derive short title
   let title = text.slice(0, 45).replace(/[\r\n]+/g, ' ').trim();
   if (text.length > 45) title += '...';
-
   const summary = text.slice(0, 120).replace(/[\r\n]+/g, ' ').trim() + (text.length > 120 ? '...' : '');
 
   return {

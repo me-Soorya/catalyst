@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
-import { fetchUpcomingEvents, createCalendarEvent, deleteCalendarEvent } from '../services/googleCalendar';
+import { fetchUpcomingEvents, createCalendarEvent, deleteCalendarEvent, findMatchingCalendarEvent } from '../services/googleCalendar';
 
 const CalendarContext = createContext();
 
@@ -51,11 +51,20 @@ export const CalendarProvider = ({ children }) => {
     loadEvents();
   }, [loadEvents]);
 
-  // Add new event
+  const isExistingCalendarEvent = (eventData) => {
+    return findMatchingCalendarEvent(events, eventData.title, eventData.startDateTime);
+  };
+
   const addEvent = async (eventData) => {
     if (!accessToken) {
       showToast('Account is not connected. Please connect your Google Account.', 'error');
       throw new Error('Account is not connected');
+    }
+
+    const existingEvent = isExistingCalendarEvent(eventData);
+    if (existingEvent) {
+      showToast('This event already exists in Google Calendar.', 'info');
+      return existingEvent;
     }
 
     setLoading(true);
@@ -67,6 +76,30 @@ export const CalendarProvider = ({ children }) => {
     } catch (err) {
       console.error('Error creating event:', err);
       showToast('Failed to create event: ' + (err.response?.data?.error?.message || err.message), 'error');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const ensureCalendarEventExists = async (eventData, options = { silent: false }) => {
+    if (!accessToken) {
+      if (!options.silent) showToast('Account is not connected. Please connect your Google Account.', 'error');
+      throw new Error('Account is not connected');
+    }
+
+    const existingEvent = isExistingCalendarEvent(eventData);
+    if (existingEvent) return existingEvent;
+
+    setLoading(true);
+    try {
+      const createdEvent = await createCalendarEvent(accessToken, eventData);
+      if (!options.silent) showToast('Created calendar event for formal assignment.', 'success');
+      await loadEvents();
+      return createdEvent;
+    } catch (err) {
+      console.error('Error auto-syncing calendar event:', err);
+      if (!options.silent) showToast('Failed to auto-sync calendar event: ' + (err.response?.data?.error?.message || err.message), 'error');
       throw err;
     } finally {
       setLoading(false);
@@ -99,6 +132,7 @@ export const CalendarProvider = ({ children }) => {
         loadEvents,
         addEvent,
         removeEvent,
+        ensureCalendarEventExists,
         showToast,
         hideToast,
       }}

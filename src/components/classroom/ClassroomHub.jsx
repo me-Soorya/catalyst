@@ -100,8 +100,18 @@ export default function ClassroomHub() {
         text || fallbackTitle,
         selectedCourse?.name || 'Classroom'
       );
-      setAiScanResults((prev) => ({ ...prev, [itemId]: result }));
-      showToast('Gemini AI successfully scanned post!', 'success');
+
+      if (result?.hasDueDate && result.dueDateISO && new Date(result.dueDateISO) > new Date()) {
+        setAiScanResults((prev) => ({ ...prev, [itemId]: result }));
+        showToast('Gemini AI successfully scanned post!', 'success');
+      } else {
+        setAiScanResults((prev) => {
+          const next = { ...prev };
+          delete next[itemId];
+          return next;
+        });
+        showToast('No valid future due date detected.', 'info');
+      }
     } catch (err) {
       console.error('Error scanning post:', err);
       showToast('Failed to analyze with AI', 'error');
@@ -128,8 +138,12 @@ export default function ClassroomHub() {
       if (!newResults[item.id]) {
         try {
           const res = await extractDueDateWithGemini(item.text, selectedCourse.name);
-          newResults[item.id] = res;
-          if (res.hasDueDate || res.isAssignment) foundCount++;
+          if (res.hasDueDate && res.dueDateISO && new Date(res.dueDateISO) > new Date()) {
+            newResults[item.id] = res;
+            foundCount++;
+          } else {
+            newResults[item.id] = { ...res, hasDueDate: false, dueDateISO: null };
+          }
         } catch (err) {
           console.warn('Batch scan item failed:', item.id);
         }
@@ -441,30 +455,22 @@ export default function ClassroomHub() {
 
                           {/* AI Detection Pill / Scan Action */}
                           <div className="pt-3 border-t border-slate-200/80 flex flex-wrap items-center justify-between gap-3">
-                            {aiResult ? (
+                            {aiResult && aiResult.hasDueDate && aiResult.dueDateISO && new Date(aiResult.dueDateISO) > new Date() ? (
                               <div className="flex items-center gap-3 w-full sm:w-auto">
-                                <div className={`p-2.5 rounded-xl text-xs flex items-center gap-2 font-semibold ${
-                                  aiResult.hasDueDate
-                                    ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                                    : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                }`}>
+                                <div className="p-2.5 rounded-xl text-xs flex items-center gap-2 font-semibold bg-rose-50 text-rose-700 border border-rose-200">
                                   <Sparkles className="w-4 h-4 text-indigo-500 flex-shrink-0" />
                                   <div>
                                     <span className="font-bold">AI Detection:</span>{' '}
-                                    {aiResult.hasDueDate
-                                      ? `Found Due Date (${new Date(aiResult.dueDateISO).toLocaleString()})`
-                                      : 'No hidden deadline detected.'}
+                                    {`Found Due Date (${new Date(aiResult.dueDateISO).toLocaleString()})`}
                                   </div>
                                 </div>
 
-                                {aiResult.hasDueDate && (
-                                  <button
-                                    onClick={() => openConfirmModal(aiResult)}
-                                    className="px-4 py-2 rounded-xl text-white text-xs font-bold bg-gradient-to-br from-indigo-500 to-violet-600 shadow-neu-xs hover:scale-105 transition-all"
-                                  >
-                                    Confirm Task & Sync
-                                  </button>
-                                )}
+                                <button
+                                  onClick={() => openConfirmModal(aiResult)}
+                                  className="px-4 py-2 rounded-xl text-white text-xs font-bold bg-gradient-to-br from-indigo-500 to-violet-600 shadow-neu-xs hover:scale-105 transition-all"
+                                >
+                                  Confirm Task & Sync
+                                </button>
                               </div>
                             ) : (
                               <button

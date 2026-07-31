@@ -4,10 +4,11 @@ import { GraduationCap, BookOpen, Briefcase, Zap, LogOut, AlertCircle, Plus, Cal
 import AddEventModal from './components/calendar/AddEventModal';
 import CalendarModal from './components/CalendarModal';
 import EventList from './components/calendar/EventList';
-import ClassroomHub from './components/classroom/ClassroomHub';
+import PendingRadar from './components/PendingRadar';
 import Toast from './components/common/Toast';
 import { useAuth } from './context/AuthContext';
 import { useCalendar, CalendarProvider } from './context/CalendarContext';
+import { fetchPendingStudentAssignments } from './services/googleClassroom';
 
 // ─── KPI card accent configs ──────────────────────────────────────────────────
 const KPI_CARDS = [
@@ -73,28 +74,50 @@ const KPI_CARDS = [
 
 // ─── Dashboard (inner) ────────────────────────────────────────────────────────
 function Dashboard() {
-  const { user, isAuthenticated, login, logout } = useAuth();
-  const { events } = useCalendar();
+  const { accessToken, user, isAuthenticated, login, logout } = useAuth();
+  const { events, addEvent, showToast } = useCalendar();
 
   const [activeView, setActiveView]         = useState('dashboard'); // 'dashboard' | 'classroom'
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [clock, setClock]                   = useState(new Date());
+  const [pendingAssignments, setPendingAssignments] = useState([]);
+  const [syncingId, setSyncingId]           = useState(null);
 
   useEffect(() => {
     const timer = setInterval(() => setClock(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
+  // Fetch pending live assignments
+  useEffect(() => {
+    async function loadPending() {
+      try {
+        const data = await fetchPendingStudentAssignments(accessToken);
+        setPendingAssignments(data);
+      } catch (err) {
+        console.warn('Dashboard pending assignments fetch error:', err);
+      }
+    }
+    loadPending();
+  }, [accessToken]);
+
   const displayName = user?.name?.split(' ')[0] || 'Student';
   const currentDate = format(clock, 'EEEE, MMMM d');
   const currentTime = format(clock, 'h:mm:ss a');
   const currentYear = format(clock, 'yyyy');
 
-  // KPI counts — useMemo so clock tick doesn't trigger recompute
+  // KPI counts — dynamically combine calendar events and pending assignments
   const kpiCounts = useMemo(
-    () => KPI_CARDS.map((card) => events.filter(card.match).length),
-    [events]
+    () =>
+      KPI_CARDS.map((card) => {
+        const calendarMatchCount = events.filter(card.match).length;
+        if (card.key === 'due') {
+          return calendarMatchCount + pendingAssignments.length;
+        }
+        return calendarMatchCount;
+      }),
+    [events, pendingAssignments]
   );
 
   const greetHour = clock.getHours();
@@ -150,7 +173,8 @@ function Dashboard() {
                   }`}
                 >
                   <GraduationCap className="w-3.5 h-3.5" />
-                  <span>Classroom Hub</span>
+                  <span className="hidden sm:inline">Pending Radar</span>
+                  <span className="sm:hidden">Radar</span>
                 </button>
               </div>
             </div>
@@ -217,7 +241,7 @@ function Dashboard() {
       ════════════════════════════════════════ */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {activeView === 'classroom' ? (
-          <ClassroomHub />
+          <PendingRadar />
         ) : (
           <>
             {/* ── Hero Banner ── */}
@@ -320,6 +344,113 @@ function Dashboard() {
                 );
               })}
             </div>
+
+            {/* ── 🤖 AI DETECTED & PENDING CLASSROOM ASSIGNMENTS PANEL ── */}
+            {pendingAssignments.length > 0 && (
+              <div className="neu-card p-6 mb-8 border-l-4 border-l-rose-500 relative overflow-hidden">
+                <div className="flex items-center justify-between gap-4 mb-4">
+                  <div>
+                    <h3 className="font-display font-extrabold text-lg text-slate-800 flex items-center gap-2">
+                      <Sparkles className="w-5 h-5 text-indigo-600 animate-pulse" />
+                      <span>AI Detected & Pending Classroom Deadlines</span>
+                      <span className="px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700 text-xs font-bold">
+                        {pendingAssignments.length} Pending
+                      </span>
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Unsubmitted assignments automatically fetched from active 2026 Google Classrooms. Click to sync directly to your Google Calendar.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setActiveView('classroom')}
+                    className="hidden sm:flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-800"
+                  >
+                    View Radar Hub &rarr;
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {pendingAssignments.slice(0, 4).map((assignment) => {
+                    const isSyncing = syncingId === assignment.id;
+                    return (
+                      <div
+                        key={assignment.id}
+                        className="p-4 rounded-2xl neu-inset bg-white/60 flex flex-col justify-between gap-3 border border-white/80"
+                      >
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="px-2 py-0.5 rounded-md bg-teal-100 text-teal-800 font-extrabold text-[10px] uppercase">
+                              {assignment.courseName}
+                            </span>
+                            <span className={`text-[10px] font-bold uppercase tracking-wide rounded-md px-2 py-0.5 ${
+                              assignment.assignmentStatus === '❌ Missing'
+                                ? 'bg-rose-50 text-rose-700'
+                                : assignment.assignmentStatus === '⚠️ No Due Date'
+                                ? 'bg-indigo-50 text-indigo-700'
+                                : 'bg-amber-50 text-amber-700'
+                            }`}>
+                              {assignment.assignmentStatus || (assignment.hasNoDueDate ? '⚠️ No Due Date' : '⏳ Pending')}
+                            </span>
+                          </div>
+
+                          <h4 className="font-extrabold text-slate-800 text-sm">{assignment.title}</h4>
+                          {assignment.description && (
+                            <p className="text-xs text-slate-500 line-clamp-1">{assignment.description}</p>
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-200/60">
+                          <a
+                            href={assignment.alternateLink}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[11px] font-bold text-teal-700 hover:underline"
+                          >
+                            Open Classroom
+                          </a>
+
+                          <button
+                            onClick={async () => {
+                              setSyncingId(assignment.id);
+                              try {
+                                const startDateTime = assignment.dueDateISO || new Date().toISOString();
+                                const endDate = new Date(startDateTime);
+                                endDate.setHours(endDate.getHours() + 1);
+
+                                await addEvent({
+                                  title: `[DUE] ${assignment.title} (${assignment.courseName})`,
+                                  description: `Course: ${assignment.courseName}\nInstructions: ${assignment.description}\nLink: ${assignment.alternateLink}\n\n[Synced via Catalyst AI Dashboard]`,
+                                  startDateTime,
+                                  endDateTime: endDate.toISOString(),
+                                  colorId: '11',
+                                });
+
+                                setPendingAssignments((prev) => prev.filter((item) => item.id !== assignment.id));
+                              } catch (err) {
+                                console.error('Sync failed:', err);
+                              } finally {
+                                setSyncingId(null);
+                              }
+                            }}
+                            disabled={isSyncing}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-white font-bold text-xs bg-indigo-600 hover:bg-indigo-700 shadow-neu-xs transition-all disabled:opacity-50"
+                          >
+                            {isSyncing ? (
+                              <span>Syncing...</span>
+                            ) : (
+                              <>
+                                <CalendarIcon className="w-3.5 h-3.5" />
+                                <span>📅 Sync to Google Calendar</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* ── Event List ── */}
             <EventList onOpenCreateModal={() => setIsAddModalOpen(true)} />
